@@ -284,7 +284,42 @@
 </head>
 <body>
 
-<h1>Ratite Runner</h1>
+<div style="display:flex;align-items:center;justify-content:center;gap:14px;">
+  <svg width="90" height="62" viewBox="-18 0 90 62" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+    <!-- shadow -->
+    <ellipse cx="38" cy="57" rx="18" ry="4" fill="rgba(0,0,0,0.12)"/>
+    <!-- legs -->
+    <line x1="32" y1="50" x2="28" y2="56" stroke="#a06030" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="28" y1="56" x2="22" y2="56" stroke="#a06030" stroke-width="2" stroke-linecap="round"/>
+    <line x1="28" y1="56" x2="27" y2="58" stroke="#a06030" stroke-width="2" stroke-linecap="round"/>
+    <line x1="44" y1="50" x2="48" y2="56" stroke="#a06030" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="48" y1="56" x2="54" y2="56" stroke="#a06030" stroke-width="2" stroke-linecap="round"/>
+    <line x1="48" y1="56" x2="49" y2="58" stroke="#a06030" stroke-width="2" stroke-linecap="round"/>
+    <!-- body -->
+    <ellipse cx="40" cy="37" rx="20" ry="17" fill="#8b6040" stroke="#5a3a18" stroke-width="1.5"/>
+    <!-- streaky feather texture -->
+    <line x1="24" y1="32" x2="30" y2="24" stroke="rgba(0,0,0,0.18)" stroke-width="1"/>
+    <line x1="30" y1="37" x2="36" y2="28" stroke="rgba(0,0,0,0.18)" stroke-width="1"/>
+    <line x1="36" y1="40" x2="42" y2="30" stroke="rgba(0,0,0,0.18)" stroke-width="1"/>
+    <line x1="44" y1="38" x2="50" y2="29" stroke="rgba(0,0,0,0.15)" stroke-width="1"/>
+    <line x1="50" y1="34" x2="56" y2="27" stroke="rgba(0,0,0,0.15)" stroke-width="1"/>
+    <!-- wing hint (right side) -->
+    <path d="M58,36 Q60,28 54,26 Q56,32 58,36Z" fill="#6a4828" stroke="#4a2810" stroke-width="1"/>
+    <!-- neck -->
+    <ellipse cx="24" cy="28" rx="7" ry="9" fill="#9a7050" stroke="#5a3a18" stroke-width="1.2" transform="rotate(10,24,28)"/>
+    <!-- head -->
+    <ellipse cx="19" cy="20" rx="9" ry="8" fill="#9a7050" stroke="#5a3a18" stroke-width="1.2"/>
+    <!-- long downcurved bill — starts at head, curves down toward tip -->
+    <path d="M12,17 Q0,14 -12,20 Q-10,25 -12,26 Q0,21 12,22 Z" fill="#c08040" stroke="#806020" stroke-width="1"/>
+    <!-- nostril near tip -->
+    <circle cx="-10" cy="22" r="1.3" fill="#5a3010"/>
+    <!-- eye -->
+    <circle cx="17" cy="17" r="3" fill="white" stroke="#5a3818" stroke-width="1"/>
+    <circle cx="16.5" cy="17" r="1.6" fill="#1a0c04"/>
+    <circle cx="16" cy="16.2" r="0.6" fill="white"/>
+  </svg>
+  <h1>Ratite Runner</h1>
+</div>
 <p class="subtitle">The flightless bird survival game</p>
 
 <div id="game-wrapper">
@@ -292,7 +327,7 @@
   <div id="ui-bar">
     <span id="score-display">SCORE: <b id="score">0</b></span>
     <span id="hi-display">BEST: <b id="hiscore">0</b></span>
-    <span style="font-size:0.68rem;color:#6a8a6a">SPACE / TAP to jump</span>
+    <span style="font-size:0.68rem;color:#6a8a6a">SPACE / TAP to jump · SPACE cancels power-up</span>
   </div>
 
   <!-- Select Screen -->
@@ -1174,10 +1209,20 @@ function restartGame() {
   startGame();
 }
 
+function cancelPowerup() {
+  if (!activePowerup) return;
+  if (activePowerup === 'paraglider') { player.vy = 0; }
+  playPowerupExpire();
+  activePowerup = null;
+  activePowerupTimer = 0;
+}
+
 function jump() {
   ensureAudio();
   if (gameState === 'dead') { restartGame(); return; }
   if (gameState === 'select') return;
+  // Space while power-up is active: cancel it
+  if (activePowerup) { cancelPowerup(); return; }
   if (player.onGround || player.jumpCount < 1) {
     player.vy = -14; player.onGround = false; player.jumpCount++;
     playJump();
@@ -1272,19 +1317,29 @@ function update() {
   powerupTimer--;
   if (powerupTimer <= 0) {
     const type = POWERUP_TYPES[Math.floor(Math.random()*POWERUP_TYPES.length)];
-    powerups.push({ type, x: W+20, y: GROUND_Y - 30, bob: Math.random()*Math.PI*2 });
+    // Spawn at a height reachable by ALL birds while running on the ground.
+    // Smallest bird (kiwi h:46) top = GROUND_Y-46; tallest (elephant bird h:100) mid = GROUND_Y-50.
+    // Place at GROUND_Y-52 so mid-body of every species overlaps the pickup.
+    powerups.push({ type, x: W+20, y: GROUND_Y - 52, bob: Math.random()*Math.PI*2 });
     powerupTimer = 320 + Math.random()*240;
   }
   powerups.forEach(p => { p.x -= speed; p.bob += 0.07; });
   powerups = powerups.filter(p => p.x > -40);
 
-  // Collect power-ups
+  // Collect power-ups — use a wide vertical band covering the whole bird body
   const ah2 = animals[selectedAnimal].h;
-  const pux = PLAYER_X - 4, puy = player.y - ah2 + 12;
+  const pux = PLAYER_X - 20;          // left edge of bird sprite
+  const birdTop = player.y - ah2 + 8; // top of bird
+  const birdBot = player.y;            // feet
   for (let i = powerups.length-1; i >= 0; i--) {
     const p = powerups[i];
-    const pcx = p.x + 14, pcy = p.y + Math.sin(p.bob)*5;
-    if (Math.abs(pux+17 - pcx) < 30 && Math.abs(puy+20 - pcy) < 30) {
+    const pcx = p.x + 14;
+    const pcy = p.y + Math.sin(p.bob) * 5;
+    // Horizontal: powerup centre within 45px of bird centre
+    // Vertical: powerup centre anywhere between bird's feet and head
+    const horizOk = Math.abs(pux + 34 - pcx) < 45;
+    const vertOk  = pcy >= birdTop - 10 && pcy <= birdBot + 10;
+    if (horizOk && vertOk) {
       activePowerup = p.type; activePowerupTimer = POWERUP_DURATION;
       playPowerupCollect(p.type);
       if (p.type === 'paraglider') { player.onGround = false; player.vy = -4; }
