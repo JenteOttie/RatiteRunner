@@ -247,6 +247,39 @@
   }
 
   #change-animal-btn:hover { background: rgba(160,200,160,0.2); }
+
+  .powerup-legend {
+    margin-top: 10px;
+    background: rgba(255,255,255,0.55);
+    border: 1.5px solid #c8ddb8;
+    border-radius: 10px;
+    padding: 10px 16px 12px;
+    max-width: 680px;
+    width: 100%;
+  }
+  .powerup-legend-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: #4a6a4a;
+    margin-bottom: 8px;
+  }
+  .powerup-legend-items {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .powerup-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.78rem;
+    color: #2a4a2a;
+    flex: 1;
+    min-width: 220px;
+  }
+  .powerup-legend-item svg { flex-shrink: 0; }
 </style>
 </head>
 <body>
@@ -274,6 +307,20 @@
 
     <div class="section-label">⭐ Bonus Birds (not ratites, but beloved)</div>
     <div class="animal-cards" id="bonus-cards"></div>
+
+    <div class="powerup-legend">
+      <div class="powerup-legend-title">✨ Power-ups</div>
+      <div class="powerup-legend-items">
+        <div class="powerup-legend-item">
+          <svg width="22" height="22" viewBox="-13 -13 26 26"><polygon points="0,-12 10.4,-6 10.4,6 0,12 -10.4,6 -10.4,-6" fill="#2196f3" stroke="#80d8ff" stroke-width="1.5"/><circle cx="0" cy="0" r="4" fill="rgba(255,255,255,0.5)"/></svg>
+          <div><strong>Shield</strong> — protects against obstacles for a few seconds</div>
+        </div>
+        <div class="powerup-legend-item">
+          <svg width="22" height="22" viewBox="-15 -15 30 30"><path d="M-12,2 A12,12 0 0,1 12,2 Z" fill="#f44336"/><path d="M-8,2 A8,8 0 0,1 0,2 Z" fill="#ff9800"/><path d="M0,2 A8,8 0 0,1 8,2 Z" fill="#ffeb3b"/><path d="M8,2 A12,12 0 0,1 12,2 Z" fill="#4caf50"/><line x1="-5" y1="3" x2="-2" y2="10" stroke="rgba(0,0,0,0.4)" stroke-width="1"/><line x1="5" y1="3" x2="2" y2="10" stroke="rgba(0,0,0,0.4)" stroke-width="1"/></svg>
+          <div><strong>Paraglider</strong> — glide above everything for a few seconds</div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Game Over -->
@@ -397,7 +444,7 @@ let powerups = [], powerupTimer = 300;
 let activePowerup = null, activePowerupTimer = 0;
 let speedBeforeSlow = 5, shieldFlash = 0, paragliderAngle = 0;
 const POWERUP_DURATION = 220;
-const POWERUP_TYPES = ['shield', 'paraglider', 'clock'];
+const POWERUP_TYPES = ['shield', 'paraglider'];
 let clouds = [{ x:200,y:30,scale:1 },{ x:500,y:50,scale:0.7 },{ x:700,y:20,scale:1.3 }];
 let groundOffset = 0;
 
@@ -1163,14 +1210,6 @@ function playPowerupCollect(type) {
     g.gain.setValueAtTime(0.15,audioCtx.currentTime);
     g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.4);
     o.start();o.stop(audioCtx.currentTime+0.4);
-  } else if (type === 'clock') {
-    [880,660].forEach((f,i) => {
-      const o=audioCtx.createOscillator(),g=audioCtx.createGain();
-      o.connect(g);g.connect(audioCtx.destination);o.type='square';o.frequency.value=f;
-      const t=audioCtx.currentTime+i*0.13;
-      g.gain.setValueAtTime(0.12,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.1);
-      o.start(t);o.stop(t+0.13);
-    });
   }
 }
 function playPowerupExpire() {
@@ -1190,10 +1229,8 @@ function update() {
   frame++; score++;
   if (score % 100 === 0) playScore();
 
-  if (activePowerup !== 'clock') {
-    speedTimer++;
-    if (speedTimer > 400) { speed = Math.min(speed + 0.3, 14); speedTimer = 0; }
-  }
+  speedTimer++;
+  if (speedTimer > 400) { speed = Math.min(speed + 0.3, 14); speedTimer = 0; }
 
   groundOffset = (groundOffset + speed) % 40;
 
@@ -1248,10 +1285,8 @@ function update() {
     const p = powerups[i];
     const pcx = p.x + 14, pcy = p.y + Math.sin(p.bob)*5;
     if (Math.abs(pux+17 - pcx) < 30 && Math.abs(puy+20 - pcy) < 30) {
-      if (activePowerup === 'clock') speed = speedBeforeSlow;
       activePowerup = p.type; activePowerupTimer = POWERUP_DURATION;
       playPowerupCollect(p.type);
-      if (p.type === 'clock') { speedBeforeSlow = speed; speed = Math.max(2, speed * 0.45); }
       if (p.type === 'paraglider') { player.onGround = false; player.vy = -4; }
       powerups.splice(i, 1);
     }
@@ -1262,7 +1297,6 @@ function update() {
     activePowerupTimer--;
     shieldFlash += 0.18;
     if (activePowerupTimer <= 0) {
-      if (activePowerup === 'clock') speed = speedBeforeSlow;
       playPowerupExpire();
       activePowerup = null;
     }
@@ -1318,19 +1352,6 @@ function drawPowerupItem(cx, cy, type) {
     ctx.beginPath();ctx.moveTo(cx-7,cy+5);ctx.lineTo(cx,cy+r+4);ctx.stroke();
     ctx.beginPath();ctx.moveTo(cx+7,cy+5);ctx.lineTo(cx,cy+r+4);ctx.stroke();
     ctx.restore();
-  } else if (type === 'clock') {
-    const g=ctx.createRadialGradient(cx-4,cy-4,1,cx,cy,r+2);
-    g.addColorStop(0,'#fff9c4');g.addColorStop(0.5,'#ffc107');g.addColorStop(1,'#e65100');
-    ctx.save();ctx.shadowBlur=10;ctx.shadowColor='#ffc107';
-    ctx.fillStyle=g;ctx.strokeStyle='#fff8e1';ctx.lineWidth=1.5;
-    ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();ctx.stroke();
-    ctx.fillStyle='rgba(255,255,255,0.18)';ctx.beginPath();ctx.arc(cx,cy,r*0.72,0,Math.PI*2);ctx.fill();
-    ctx.strokeStyle='rgba(0,0,0,0.45)';ctx.lineWidth=0.9;
-    for(let i=0;i<12;i++){const a=i*Math.PI/6;ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*r*0.58,cy+Math.sin(a)*r*0.58);ctx.lineTo(cx+Math.cos(a)*r*0.72,cy+Math.sin(a)*r*0.72);ctx.stroke();}
-    ctx.strokeStyle='rgba(0,0,0,0.65)';ctx.lineWidth=1.5;ctx.lineCap='round';
-    ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(-1.2)*r*0.44,cy+Math.sin(-1.2)*r*0.44);ctx.stroke();
-    ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(0.8)*r*0.54,cy+Math.sin(0.8)*r*0.54);ctx.stroke();
-    ctx.restore();
   }
 }
 
@@ -1369,25 +1390,14 @@ function drawParagliderEffect() {
   ctx.restore();
 }
 
-function drawClockEffect() {
-  const cx=PLAYER_X+2, cy=player.y - animals[selectedAnimal].h*0.5;
-  for(let ring=0;ring<2;ring++){
-    const r=((frame*0.8 + ring*30)%60);
-    ctx.save();ctx.globalAlpha=Math.max(0,(60-r)/60)*0.22;
-    ctx.strokeStyle='#5c6bc0';ctx.lineWidth=1.5;
-    ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();
-    ctx.restore();
-  }
-  ctx.save();ctx.globalAlpha=0.06;ctx.fillStyle='#3f51b5';ctx.fillRect(0,0,W,H);ctx.restore();
-}
 
 function drawPowerupHUD() {
   if (!activePowerup) return;
   const frac=activePowerupTimer/POWERUP_DURATION;
   const barW=110, barH=7, bx=W/2-barW/2, by=8;
   const warning=activePowerupTimer<60 && Math.floor(frame/7)%2===0;
-  const cols={shield:'#2196f3',paraglider:'#ff9800',clock:'#ffc107'};
-  const labels={shield:'🛡 SHIELD',paraglider:'🪂 PARAGLIDER',clock:'⏱ SLOW-MO'};
+  const cols={shield:'#2196f3',paraglider:'#ff9800'};
+  const labels={shield:'🛡 SHIELD',paraglider:'🪂 PARAGLIDER'};
   ctx.save();
   ctx.fillStyle='rgba(0,0,0,0.28)';ctx.beginPath();ctx.roundRect(bx-2,by-1,barW+4,barH+2,4);ctx.fill();
   ctx.fillStyle=warning?'#f44336':cols[activePowerup];
@@ -1422,7 +1432,6 @@ function drawGround() {
 function draw() {
   ctx.clearRect(0,0,W,H);
   drawGround();
-  if (activePowerup === 'clock') drawClockEffect();
   clouds.forEach(c=>drawCloud(c.x,c.y,c.scale));
 
   const meters=Math.floor(score/10);
